@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Console Groups Plugin</title>
+</head>
+<body>
+
+<h1>Admin Console Groups</h1>
+
+<p>
+    Lets the members of chosen user groups sign in to the Openfire admin console. For example, an
+    Active Directory group such as <em>Domain Admins</em>. The accounts already marked
+    <strong>Is Administrator</strong> keep their access; the groups only add to them.
+</p>
+
+<h2>Using it</h2>
+<p>
+    Open <strong>Server &gt; Server Manager &gt; Admin Console Groups</strong> and add a group. Its
+    members can sign in at once. The page also lists every account that can use the console, and
+    why: the admin list or a group.
+</p>
+<ul>
+    <li>A group's own administrators count as members.</li>
+    <li>Only accounts on this server are made administrators. A member from another server is
+        ignored, so a remote account can never gain administrator rights through a group.</li>
+    <li>Someone removed from the group loses access at the next refresh. Their open admin console
+        session ends at their next page load, because Openfire checks on every request.</li>
+    <li>You cannot remove the group that is your only source of access. Remove it while signed
+        in as another administrator.</li>
+    <li>Renaming a group in Openfire updates the setting. Deleting a group removes it, so a new
+        group created later with the same name does not get administrator rights.</li>
+</ul>
+
+<h2>How fast changes count</h2>
+<p>
+    Openfire keeps a cached list of administrators. The plugin rebuilds that list
+</p>
+<ul>
+    <li>right after any change to a configured group made in Openfire,</li>
+    <li>whenever the setting changes, and</li>
+    <li>every <code>plugin.admingroups.refreshSeconds</code> seconds (default 60).</li>
+</ul>
+<p>
+    The timer is how a change made directly in LDAP or Active Directory is picked up: those raise
+    no event in Openfire. Each refresh reads the groups past Openfire's group cache.
+</p>
+
+<h2>Declaring the groups in openfire.xml</h2>
+<p>
+    The groups can also be declared in Openfire's own <code>conf/openfire.xml</code>. The block is
+    read when the plugin starts, and again when <strong>Read the configuration file</strong> is
+    pressed on the admin page. The file is never written.
+</p>
+<pre>&lt;jive&gt;
+  &lt;admingroups refreshSeconds="60"&gt;
+    &lt;groups&gt;
+      &lt;group name="Domain Admins"/&gt;
+    &lt;/groups&gt;
+  &lt;/admingroups&gt;
+&lt;/jive&gt;</pre>
+<ul>
+    <li>A <code>&lt;groups&gt;</code> element replaces the whole group list, so removing a group
+        from the file revokes it at the next read. An empty <code>&lt;groups/&gt;</code> clears the
+        list; leaving <code>&lt;groups&gt;</code> out leaves the list alone.</li>
+    <li>A group that is not found is kept, with a warning, in case LDAP is unreachable at start-up.
+        It makes nobody an administrator until it can be read.</li>
+    <li>The button refuses to apply a list that would lock out the administrator pressing it.</li>
+</ul>
+
+<h2>Settings</h2>
+<table border="1" cellpadding="4" cellspacing="0">
+    <tr><th>System property</th><th>Default</th><th>Meaning</th></tr>
+    <tr>
+        <td><code>plugin.admingroups.groups</code></td>
+        <td><em>empty</em></td>
+        <td>Comma-separated names of the groups whose members are administrators. The admin page
+            edits it.</td>
+    </tr>
+    <tr>
+        <td><code>plugin.admingroups.refreshSeconds</code></td>
+        <td><code>60</code></td>
+        <td>Seconds between re-reads of the groups, from 10 to 86400.</td>
+    </tr>
+    <tr>
+        <td><code>plugin.admingroups.previousProvider</code></td>
+        <td><em>empty</em></td>
+        <td>Written by the plugin: <code>provider.admin.className</code> as it was before the
+            plugin replaced it. Do not edit.</td>
+    </tr>
+</table>
+
+<h2>How it works</h2>
+<p>
+    While loaded, the plugin sets <code>provider.admin.className</code> to its own provider. That
+    provider wraps the one configured before, so the stored admin list, or a JDBC provider, keeps
+    working. Unloading the plugin puts the previous value back.
+</p>
+<p>
+    If <code>provider.admin.className</code> is changed by hand while the plugin is loaded, the
+    plugin steps aside, and its page says so. Reload the plugin to wrap the new provider.
+</p>
+<p>
+    Members also count as administrators everywhere else Openfire asks the same question. For
+    example, the XEP-0133 service administration commands.
+</p>
+
+<h2>Requirements</h2>
+<ul>
+    <li>Openfire 5.0.5 or later.</li>
+    <li>Not tested in a cluster.</li>
+</ul>
+
+</body>
+</html>

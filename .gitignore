@@ -1,0 +1,14 @@
+target/
+.ssh_pass
+*.iml
+.idea/
+.classpath
+.project
+.settings/
+
+# Claude Code local settings (per-machine tool permissions), not project configuration.
+.claude/
+
+# The GitHub mirror tooling: it holds the PAT that publishes the sanitized copy, and the
+# replacement list is itself an inventory of the real host names.
+.github-sync/

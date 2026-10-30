@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+    <class>com.igniterealtime.openfire.plugin.admingroups.AdminGroupsPlugin</class>
+
+    <!--
+        This display name is load-bearing, not cosmetic: on unload Openfire calls
+        SystemProperty.removePropertiesForPlugin(<name>), so AdminGroupsProperties.PLUGIN must be
+        exactly this string, or the next hot reload fails with "A SystemProperty already exists
+        with a key of ...".
+    -->
+    <name>Admin Console Groups</name>
+    <description>Grants admin console access to the members of chosen user groups.</description>
+    <author>besteffortdev</author>
+    <!-- Filled in from the pom at build time (resource filtering). Bump it in pom.xml, not here. -->
+    <version>${project.version}</version>
+    <date>10/29/2026</date>
+    <!-- The Plugins page turns this into the link on the plugin's row: the public GitHub copy. -->
+    <url>https://github.com/besteffortdev/Openfire-admin-groups</url>
+    <minServerVersion>5.0.5</minServerVersion>
+    <licenseType>apache</licenseType>
+
+    <!--
+        Required, and it must be spelled out: PluginServlet reads this with Boolean.parseBoolean,
+        and Boolean.parseBoolean(null) is FALSE. Omitting it leaves the admin page with no CSRF
+        protection at all, on the one page that decides who is an administrator.
+    -->
+    <csrfProtectionEnabled>true</csrfProtectionEnabled>
+
+    <!-- Next to core's "Admin Console Access" page, under Server > Server Manager. -->
+    <adminconsole>
+        <tab id="tab-server">
+            <sidebar id="sidebar-server-manager">
+                <item id="admin-groups"
+                      name="Admin Console Groups"
+                      url="admin-groups.jsp"
+                      description="Choose the groups whose members may use the admin console"/>
+            </sidebar>
+        </tab>
+    </adminconsole>
+</plugin>

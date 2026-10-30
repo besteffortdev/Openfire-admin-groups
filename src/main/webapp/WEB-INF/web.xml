@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Source web.xml for the admin console page.
+
+    The JSP is precompiled at build time by jetty-ee8-jspc-maven-plugin, which splices the
+    generated <servlet>/<servlet-mapping> entries in at the marker below and writes the merged
+    file to target/web.xml. That merged file is what the assembly ships as web/WEB-INF/web.xml.
+-->
+<web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd"
+         version="4.0">
+
+    <!-- JSPC servlet mappings start -->
+
+</web-app>

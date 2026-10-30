@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.igniterealtime.openfire.plugin</groupId>
+    <artifactId>admingroups</artifactId>
+    <!--
+        THE single source of truth for the plugin version: src/main/resources/plugin.xml pulls it
+        from here by resource filtering (see the <resources> block below). The admin console's
+        Plugins page is the only way to tell which build a server is actually running, and it
+        reads plugin.xml.
+    -->
+    <version>0.1.1</version>
+    <packaging>jar</packaging>
+
+    <name>Openfire Admin Console Groups Plugin</name>
+    <description>
+        Grants Openfire admin console access to the members of chosen user groups, on top of the
+        accounts already listed as administrators.
+    </description>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--
+            The floor this plugin is built against. AdminManager, AdminProvider,
+            DefaultAdminProvider and GroupBasedAdminProvider are byte-identical in 5.0.5, 5.1.0
+            and 5.1.2 (the lab's version); build with -Dopenfire.version=5.1.0 to re-check the
+            rest after an Openfire upgrade.
+        -->
+        <openfire.version>5.0.5</openfire.version>
+        <junit.version>5.10.2</junit.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>igniterealtime</id>
+            <name>Ignite Realtime Repository</name>
+            <url>https://igniterealtime.org/archiva/repository/maven/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!-- Openfire server — provided at runtime by the container -->
+        <dependency>
+            <groupId>org.igniterealtime.openfire</groupId>
+            <artifactId>xmppserver</artifactId>
+            <version>${openfire.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- dom4j and SLF4J are both bundled by Openfire. dom4j reads the <admingroups> block
+             of openfire.xml. -->
+        <dependency>
+            <groupId>org.dom4j</groupId>
+            <artifactId>dom4j</artifactId>
+            <version>2.1.4</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.9</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Servlet API — Openfire's embedded Jetty uses EE8 = javax.servlet (Servlet 4.0).
+             NOT jakarta.servlet: the wrong artifact here fails at runtime with
+             NoClassDefFoundError, not at compile time. -->
+        <dependency>
+            <groupId>org.eclipse.jetty.toolchain</groupId>
+            <artifactId>jetty-servlet-api</artifactId>
+            <version>4.0.9</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!--
+            plugin.xml alone is filtered, so its <version> can be ${project.version} and the pom
+            stays the only place a version number is written. Everything else is copied verbatim,
+            so a ${...} sequence in readme.html stays content.
+        -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>plugin.xml</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>plugin.xml</exclude>
+                </excludes>
+            </resource>
+        </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>17</release>
+                </configuration>
+            </plugin>
+
+            <!-- 2.12.4 (the version cached by default) predates JUnit 5 and silently runs
+                 zero tests. Pin a JUnit-Platform-aware surefire. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+
+            <!--
+                Precompiles the admin-console JSP. Openfire's PluginServlet resolves a JSP request
+                to a servlet class registered in the plugin's web/WEB-INF/web.xml — it never
+                compiles JSPs at runtime — so without this step the admin page 404s.
+                EE8, not EE10: Openfire 5 runs Jetty 12's EE8 layer, which keeps the javax.servlet
+                packages.
+            -->
+            <plugin>
+                <groupId>org.eclipse.jetty.ee8</groupId>
+                <artifactId>jetty-ee8-jspc-maven-plugin</artifactId>
+                <version>12.0.35</version>
+                <executions>
+                    <execution>
+                        <id>jspc</id>
+                        <phase>process-classes</phase>
+                        <goals><goal>jspc</goal></goals>
+                        <configuration>
+                            <!-- Without this the compile classpath excludes provided-scope
+                                 artifacts, so xmppserver is absent and the page fails with
+                                 "The value for the useBean class attribute
+                                 [org.jivesoftware.util.WebManager] is invalid". -->
+                            <useProvidedScope>true</useProvidedScope>
+                            <webAppSourceDirectory>${basedir}/src/main/webapp</webAppSourceDirectory>
+                            <webXml>${basedir}/src/main/webapp/WEB-INF/web.xml</webXml>
+                            <insertionMarker>&lt;!-- JSPC servlet mappings start --&gt;</insertionMarker>
+                            <webXmlFragment>${project.build.directory}/webfrag.xml</webXmlFragment>
+                            <generatedClasses>${project.build.outputDirectory}</generatedClasses>
+                            <keepSources>false</keepSources>
+                            <sourceVersion>17</sourceVersion>
+                            <targetVersion>17</targetVersion>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                Assembly plugin creates the proper Openfire plugin archive:
+                  plugin.xml + readme.html at root
+                  lib/<name>.jar  (classes — loaded by PluginClassLoader)
+                  web/            (the admin console page)
+                Output: target/admingroups.jar  (deployed to Openfire's plugins dir)
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.7.1</version>
+                <executions>
+                    <execution>
+                        <id>openfire-plugin-assembly</id>
+                        <phase>package</phase>
+                        <goals><goal>single</goal></goals>
+                        <configuration>
+                            <finalName>admingroups</finalName>
+                            <appendAssemblyId>false</appendAssemblyId>
+                            <descriptors>
+                                <descriptor>src/assembly/openfire-plugin.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
